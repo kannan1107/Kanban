@@ -14,12 +14,20 @@ export default function TaskCard({ task, onEdit }) {
   } = useSortable({ id: task.id });
 
   const style = {
-    transform: CSS.Transform.toString(transform),
+    // FIX 1: Use CSS.Translate instead of CSS.Transform to prevent scaling distortion
+    transform: CSS.Translate.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
+    // FIX 2: Essential for dragging to work correctly on touch devices
+    touchAction: 'none', 
   };
 
   const handleDelete = () => {
+    if (!task.id) return;
+    
+    if (!window.confirm(`Are you sure you want to delete this task: "${task.title}"?`)) {
+      return;
+    }
     dispatch({ type: 'DELETE_TASK', payload: task.id });
   };
 
@@ -39,6 +47,8 @@ export default function TaskCard({ task, onEdit }) {
       {...attributes}
       {...listeners}
       className="bg-white p-4 rounded-lg shadow-sm border cursor-pointer hover:shadow-md transition-shadow"
+      // Note: Having onClick here might trigger the Edit modal after you finish dragging.
+      // If that happens, consider removing this line and relying only on the Edit button below.
       onClick={() => onEdit(task)}
     >
       <h3 className="font-medium text-gray-900 mb-2">{task.title}</h3>
@@ -58,15 +68,31 @@ export default function TaskCard({ task, onEdit }) {
           ))}
         </div>
         
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            handleDelete();
-          }}
-          className="text-red-500 hover:text-red-700 text-sm"
-        >
-          ×
-        </button>
+        <div className="flex items-center">
+          <button
+            // FIX 3: Stop pointer down propagation so clicking button doesn't start a drag
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDelete();
+            }}
+            className="text-red-500 hover:text-red-700 text-sm"
+          >
+            Delete
+          </button>
+          
+          <button
+            // FIX 3: Stop pointer down propagation here as well
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit(task);
+            }}
+            className="text-blue-500 hover:text-blue-700 text-sm ml-2"
+          >
+            Edit
+          </button>
+        </div>
       </div>
       
       {task.deadline && (
