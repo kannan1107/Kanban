@@ -49,6 +49,13 @@ export default function TaskModal({ task, isOpen, onClose }) {
     onClose();
   };
 
+  const handleDelete = () => {
+    if (window.confirm(`Are you sure you want to delete this task: "${task.title}"?`)) {
+      dispatch({ type: 'DELETE_TASK', payload: task.id });
+      onClose();
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -154,6 +161,15 @@ export default function TaskModal({ task, isOpen, onClose }) {
             >
               Cancel
             </button>
+            {task && (
+              <button
+                type="button"
+                onClick={handleDelete}
+                className="flex-1 bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+              >
+                Delete
+              </button>
+            )}
           </div>
         </form>
       </div>
