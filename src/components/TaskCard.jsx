@@ -1,178 +1,105 @@
-import { useState, useEffect } from 'react';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { useTask } from '../context/TaskContext';
 
-export default function TaskModal({ task, isOpen, onClose }) {
+export default function TaskCard({ task, onEdit }) {
   const { dispatch } = useTask();
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    status: 'todo',
-    priority: '',
-    tags: '',
-    deadline: ''
-  });
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: task.id });
 
-  useEffect(() => {
-    if (task) {
-      setFormData({
-        title: task.title || '',
-        description: task.description || '',
-        status: task.status || 'todo',
-        priority: task.priority || '',
-        tags: task.tags?.join(', ') || '',
-        deadline: task.deadline || ''
-      });
-    } else {
-      setFormData({
-        title: '',
-        description: '',
-        status: 'todo',
-        priority: '',
-        tags: '',
-        deadline: ''
-      });
-    }
-  }, [task]);
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const taskData = {
-      ...formData,
-      tags: formData.tags.split(',').map(tag => tag.trim()).filter(Boolean)
-    };
-
-    if (task) {
-      dispatch({ type: 'UPDATE_TASK', payload: { ...taskData, id: task.id } });
-    } else {
-      dispatch({ type: 'ADD_TASK', payload: taskData });
-    }
-    onClose();
+  const style = {
+    // FIX 1: Use CSS.Translate instead of CSS.Transform to prevent scaling distortion
+    transform: CSS.Translate.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    // FIX 2: Essential for dragging to work correctly on touch devices
+    touchAction: 'none', 
   };
 
   const handleDelete = () => {
-    if (window.confirm(`Are you sure you want to delete this task: "${task.title}"?`)) {
-      dispatch({ type: 'DELETE_TASK', payload: task.id });
-      onClose();
+    if (!task.id) return;
+    
+    if (!window.confirm(`Are you sure you want to delete this task: "${task.title}"?`)) {
+      return;
+    }
+    dispatch({ type: 'DELETE_TASK', payload: task.id });
+  };
+
+  const getPriorityColor = (priority) => {
+    switch (priority) {
+      case 'high': return 'bg-red-100 text-red-800';
+      case 'medium': return 'bg-yellow-100 text-yellow-800';
+      case 'low': return 'bg-green-100 text-green-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-        <h2 className="text-xl font-semibold mb-4">
-          {task ? 'Edit Task' : 'Add New Task'}
-        </h2>
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className="bg-white p-4 rounded-lg shadow-sm border cursor-pointer hover:shadow-md transition-shadow"
+      // Note: Having onClick here might trigger the Edit modal after you finish dragging.
+      // If that happens, consider removing this line and relying only on the Edit button below.
+      onClick={() => onEdit(task)}
+    >
+      <h3 className="font-medium text-gray-900 mb-2">{task.title}</h3>
+      <p className="text-sm text-gray-600 mb-3">{task.description}</p>
+      
+      <div className="flex justify-between items-center">
+        <div className="flex gap-2">
+          {task.priority && (
+            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(task.priority)}`}>
+              {task.priority}
+            </span>
+          )}
+          {task.tags?.map(tag => (
+            <span key={tag} className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
+              {tag}
+            </span>
+          ))}
+        </div>
         
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Title *
-            </label>
-            <input
-              type="text"
-              required
-              value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Description
-            </label>
-            <textarea
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Status
-            </label>
-            <select
-              value={formData.status}
-              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="todo">To Do</option>
-              <option value="inprogress">In Progress</option>
-              <option value="done">Done</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Priority
-            </label>
-            <select
-              value={formData.priority}
-              onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">None</option>
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Tags (comma separated)
-            </label>
-            <input
-              type="text"
-              value={formData.tags}
-              onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
-              placeholder="frontend, urgent, bug"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Deadline
-            </label>
-            <input
-              type="date"
-              value={formData.deadline}
-              onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div className="flex gap-3 pt-4">
-            <button
-              type="submit"
-              className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {task ? 'Update' : 'Add'} Task
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
-            >
-              Cancel
-            </button>
-            {task && (
-              <button
-                type="button"
-                onClick={handleDelete}
-                className="flex-1 bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
-              >
-                Delete
-              </button>
-            )}
-          </div>
-        </form>
+        <div className="flex items-center">
+          <button
+            // FIX 3: Stop pointer down propagation so clicking button doesn't start a drag
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDelete();
+            }}
+            className="text-red-500 hover:text-red-700 text-sm"
+          >
+            Delete
+          </button>
+          
+          <button
+            // FIX 3: Stop pointer down propagation here as well
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit(task);
+            }}
+            className="text-blue-500 hover:text-blue-700 text-sm ml-2"
+          >
+            Edit
+          </button>
+        </div>
       </div>
+      
+      {task.deadline && (
+        <div className="mt-2 text-xs text-gray-500">
+          Due: {new Date(task.deadline).toLocaleDateString()}
+        </div>
+      )}
     </div>
   );
 }
