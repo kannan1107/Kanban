@@ -29,11 +29,38 @@ function taskReducer(state, action) {
         }
       };
     case 'UPDATE_TASK':
+      const updatedTask = action.payload;
+      const originalTask = state.tasks.find(t => t.id === updatedTask.id);
+
+      // If the status has not changed, just update the task details.
+      if (!originalTask || originalTask.status === updatedTask.status) {
+        return {
+          ...state,
+          tasks: state.tasks.map(task =>
+            task.id === updatedTask.id ? { ...task, ...updatedTask } : task
+          ),
+        };
+      }
+
+      // If status has changed, update the task and move it between columns.
       return {
         ...state,
-        tasks: state.tasks.map(task => 
-          task.id === action.payload.id ? { ...task, ...action.payload } : task
-        )
+        tasks: state.tasks.map(task =>
+          task.id === updatedTask.id ? { ...task, ...updatedTask } : task
+        ),
+        columns: {
+          ...state.columns,
+          [originalTask.status]: {
+            ...state.columns[originalTask.status],
+            taskIds: state.columns[originalTask.status].taskIds.filter(id => id !== updatedTask.id)
+          },
+          [updatedTask.status]: {
+            ...state.columns[updatedTask.status],
+            taskIds: state.columns[updatedTask.status].taskIds.includes(updatedTask.id)
+              ? state.columns[updatedTask.status].taskIds
+              : [...state.columns[updatedTask.status].taskIds, updatedTask.id]
+          }
+        }
       };
     case 'DELETE_TASK':
       const taskToDelete = state.tasks.find(t => t.id === action.payload);
