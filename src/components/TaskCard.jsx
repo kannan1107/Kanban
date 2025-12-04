@@ -1,105 +1,128 @@
-import { useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import { useTask } from '../context/TaskContext';
+import { createContext, useContext, useReducer, useEffect } from 'react';
 
-export default function TaskCard({ task, onEdit }) {
-  const { dispatch } = useTask();
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: task.id });
+const TaskContext = createContext();
 
-  const style = {
-    // FIX 1: Use CSS.Translate instead of CSS.Transform to prevent scaling distortion
-    transform: CSS.Translate.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-    // FIX 2: Essential for dragging to work correctly on touch devices
-    touchAction: 'none', 
-  };
+const initialState = {
+  tasks: [],
+  columns: {
+    'todo': { id: 'todo', title: 'To Do', taskIds: [] },
+    'inprogress': { id: 'inprogress', title: 'In Progress', taskIds: [] },
+    'done': { id: 'done', title: 'Done', taskIds: [] }
+  }
+};
 
-  const handleDelete = () => {
-    if (!task.id) return;
-    
-    if (!window.confirm(`Are you sure you want to delete this task: "${task.title}"?`)) {
-      return;
+function taskReducer(state, action) {
+  switch (action.type) {
+    case 'LOAD_TASKS':
+      return action.payload;
+    case 'ADD_TASK':
+      const newTask = { ...action.payload, id: Date.now().toString() };
+      return {
+        ...state,
+        tasks: [...state.tasks, newTask],
+        columns: {
+          ...state.columns,
+          [newTask.status]: {
+            ...state.columns[newTask.status],
+            taskIds: [...state.columns[newTask.status].taskIds, newTask.id]
+          }
+        }
+      };
+    case 'UPDATE_TASK':
+      const updatedTask = action.payload;
+      const originalTask = state.tasks.find(t => t.id === updatedTask.id);
+
+      // If the status has not changed, just update the task details.
+      if (!originalTask || originalTask.status === updatedTask.status) {
+        return {
+          ...state,
+          tasks: state.tasks.map(task =>
+            task.id === updatedTask.id ? { ...task, ...updatedTask } : task
+          ),
+        };
+      }
+
+      // If status has changed, update the task and move it between columns.
+      return {
+        ...state,
+        tasks: state.tasks.map(task =>
+          task.id === updatedTask.id ? { ...task, ...updatedTask } : task
+        ),
+        columns: {
+          ...state.columns,
+          [originalTask.status]: {
+            ...state.columns[originalTask.status],
+            taskIds: state.columns[originalTask.status].taskIds.filter(id => id !== updatedTask.id)
+          },
+          [updatedTask.status]: {
+            ...state.columns[updatedTask.status],
+            taskIds: state.columns[updatedTask.status].taskIds.includes(updatedTask.id)
+              ? state.columns[updatedTask.status].taskIds
+              : [...state.columns[updatedTask.status].taskIds, updatedTask.id]
+          }
+        }
+      };
+    case 'DELETE_TASK':
+      const taskToDelete = state.tasks.find(t => t.id === action.payload);
+      return {
+        ...state,
+        tasks: state.tasks.filter(task => task.id !== action.payload),
+        columns: {
+          ...state.columns,
+          [taskToDelete.status]: {
+            ...state.columns[taskToDelete.status],
+            taskIds: state.columns[taskToDelete.status].taskIds.filter(id => id !== action.payload)
+          }
+        }
+      };
+    case 'MOVE_TASK':
+      const { taskId, sourceColumn, destinationColumn, destinationIndex } = action.payload;
+      
+      return {
+        ...state,
+        tasks: state.tasks.map(t => 
+          t.id === taskId ? { ...t, status: destinationColumn } : t
+        ),
+        columns: {
+          ...state.columns,
+          [sourceColumn]: {
+            ...state.columns[sourceColumn],
+            taskIds: state.columns[sourceColumn].taskIds.filter(id => id !== taskId)
+          },
+          [destinationColumn]: {
+            ...state.columns[destinationColumn],
+            taskIds: [
+              ...state.columns[destinationColumn].taskIds.slice(0, destinationIndex),
+              taskId,
+              ...state.columns[destinationColumn].taskIds.slice(destinationIndex)
+            ]
+          }
+        }
+      };
+    default:
+      return state;
+  }
+}
+
+export function TaskProvider({ children }) {
+  const [state, dispatch] = useReducer(taskReducer, initialState);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('kanban-tasks');
+    if (saved) {
+      dispatch({ type: 'LOAD_TASKS', payload: JSON.parse(saved) });
     }
-    dispatch({ type: 'DELETE_TASK', payload: task.id });
-  };
+  }, []);
 
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case 'high': return 'bg-red-100 text-red-800';
-      case 'medium': return 'bg-yellow-100 text-yellow-800';
-      case 'low': return 'bg-green-100 text-green-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
+  useEffect(() => {
+    localStorage.setItem('kanban-tasks', JSON.stringify(state));
+  }, [state]);
 
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      {...listeners}
-      className="bg-white p-4 rounded-lg shadow-sm border cursor-pointer hover:shadow-md transition-shadow"
-      // Note: Having onClick here might trigger the Edit modal after you finish dragging.
-      // If that happens, consider removing this line and relying only on the Edit button below.
-      onClick={() => onEdit(task)}
-    >
-      <h3 className="font-medium text-gray-900 mb-2">{task.title}</h3>
-      <p className="text-sm text-gray-600 mb-3">{task.description}</p>
-      
-      <div className="flex justify-between items-center">
-        <div className="flex gap-2">
-          {task.priority && (
-            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(task.priority)}`}>
-              {task.priority}
-            </span>
-          )}
-          {task.tags?.map(tag => (
-            <span key={tag} className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
-              {tag}
-            </span>
-          ))}
-        </div>
-        
-        <div className="flex items-center">
-          <button
-            // FIX 3: Stop pointer down propagation so clicking button doesn't start a drag
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => {
-              e.stopPropagation();
-              handleDelete();
-            }}
-            className="text-red-500 hover:text-red-700 text-sm"
-          >
-            Delete
-          </button>
-          
-          <button
-            // FIX 3: Stop pointer down propagation here as well
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => {
-              e.stopPropagation();
-              onEdit(task);
-            }}
-            className="text-blue-500 hover:text-blue-700 text-sm ml-2"
-          >
-            Edit
-          </button>
-        </div>
-      </div>
-      
-      {task.deadline && (
-        <div className="mt-2 text-xs text-gray-500">
-          Due: {new Date(task.deadline).toLocaleDateString()}
-        </div>
-      )}
-    </div>
+    <TaskContext.Provider value={{ state, dispatch }}>
+      {children}
+    </TaskContext.Provider>
   );
 }
+
+export const useTask = () => useContext(TaskContext);
