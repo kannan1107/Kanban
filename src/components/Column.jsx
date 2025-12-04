@@ -2,12 +2,15 @@ import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import TaskCard from './TaskCard';
 import { useTask } from '../context/TaskContext';
-
-export default function Column({ column, onEditTask }) {
+ 
+export default function Column({ column, onEditTask, activeTaskId }) {
   const { state } = useTask();
   const { setNodeRef } = useDroppable({ id: column.id });
-  
-  const tasks = column.taskIds.map(taskId => 
+   
+  // Ensure taskIds are unique to prevent React key errors
+  const uniqueTaskIds = [...new Set(column.taskIds)];
+
+  const tasks = uniqueTaskIds.map(taskId => 
     state.tasks.find(task => task.id === taskId)
   ).filter(Boolean);
 
@@ -23,7 +26,10 @@ export default function Column({ column, onEditTask }) {
       <div ref={setNodeRef} className="space-y-3">
         <SortableContext items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
           {tasks.map(task => (
-            <TaskCard key={task.id} task={task} onEdit={onEditTask} />
+            // Do not render the task card if it's the one currently being dragged
+            task.id === activeTaskId ? null : (
+              <TaskCard key={task.id} task={task} onEdit={onEditTask} />
+            )
           ))}
         </SortableContext>
       </div>
