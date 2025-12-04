@@ -85,16 +85,22 @@ export default function KanbanBoard() {
           collisionDetection={closestCorners}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
-        >
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {Object.values(state.columns).map(column => (
-              <Column
-                key={column.id}
-                column={column}
-                onEditTask={openModal}
-              />
-            ))}
-          </div>
+
+           >
+         
+<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+
+    {Object.values(state.columns).map(column => (
+      <Column
+        key={column.id}
+        column={column}
+    activeTaskId={activeTask ? activeTask.id : null} // Pass the ID of the task currently being dragged
+        onEditTask={openModal}
+        
+      />
+      
+    ))}
+  </div> 
 
           <DragOverlay>
             {activeTask ? <TaskCard task={activeTask} onEdit={() => {}} /> : null}
