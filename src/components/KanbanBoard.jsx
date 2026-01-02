@@ -73,13 +73,8 @@ export default function KanbanBoard() {
     if (!searchTerm) return true;
     const search = searchTerm.toLowerCase();
     return (
-      task.title.toLowerCase().includes(search) ||
-       task.id.toString().includes(search) ||
-       task.status.toLowerCase().includes(search) ||
-       task.priority.toLowerCase().includes(search) ||
-       task.assignee.toLowerCase().includes(search) ||
-     
-      task.description.toLowerCase().includes(search) ||
+      (task.title || '').toLowerCase().includes(search) ||
+      (task.description || '').toLowerCase().includes(search) ||
       (task.tags && task.tags.some(tag => tag.toLowerCase().includes(search)))
     );
   });
