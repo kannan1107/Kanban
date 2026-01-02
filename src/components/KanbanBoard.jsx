@@ -11,6 +11,7 @@ export default function KanbanBoard() {
   const [activeTask, setActiveTask] = useState(null);
   const [modalTask, setModalTask] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const handleDragStart = (event) => {
     const task = state.tasks.find(t => t.id === event.active.id);
@@ -68,17 +69,43 @@ export default function KanbanBoard() {
     setIsModalOpen(false);
   };
 
+  const filteredTasks = state.tasks.filter(task => {
+    if (!searchTerm) return true;
+    const search = searchTerm.toLowerCase();
+    return (
+      task.title.toLowerCase().includes(search) ||
+      task.description.toLowerCase().includes(search) ||
+      (task.tags && task.tags.some(tag => tag.toLowerCase().includes(search)))
+    );
+  });
+
+  const getFilteredColumn = (column) => ({
+    ...column,
+    taskIds: column.taskIds.filter(taskId => 
+      filteredTasks.some(task => task.id === taskId)
+    )
+  });
+
   return (
     <div className="min-h-screen bg-gray-100 p-6">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Kanban Board</h1>
-          <button
-            onClick={() => openModal()}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            + Add Task
-          </button>
+          <div className="flex items-center gap-4">
+            <input
+              type="text"
+              placeholder="Search tasks..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button
+              onClick={() => openModal()}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              + Add Task
+            </button>
+          </div>
         </div>
 
         <DndContext
@@ -93,12 +120,10 @@ export default function KanbanBoard() {
     {Object.values(state.columns).map(column => (
       <Column
         key={column.id}
-        column={column}
-    activeTaskId={activeTask ? activeTask.id : null} // Pass the ID of the task currently being dragged
+        column={getFilteredColumn(column)}
+        activeTaskId={activeTask ? activeTask.id : null}
         onEditTask={openModal}
-        
       />
-      
     ))}
   </div> 
 
